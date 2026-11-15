@@ -27,23 +27,16 @@
   </div>
 
   <!-- Area Sentuh Layar Penuh -->
-  <button id="tap-fullscreen" class="tap-fullscreen-btn" type="button" aria-label="Ketuk layar di mana saja untuk memindai uang, ketuk dua kali untuk menjumlahkan total">
+  <button id="tap-fullscreen" class="tap-fullscreen-btn" type="button" aria-label="Ketuk layar di mana saja untuk memindai uang">
     
-    <!-- Viewfinder Persegi Panjang Vertikal (Sesuai Referensi GIF) -->
-    <div id="viewfinder" class="viewfinder">
-      <!-- 4 Sudut Rounded Putih Tebal -->
-      <span class="vf-corner corner-tl" aria-hidden="true"></span>
-      <span class="vf-corner corner-tr" aria-hidden="true"></span>
-      <span class="vf-corner corner-bl" aria-hidden="true"></span>
-      <span class="vf-corner corner-br" aria-hidden="true"></span>
-
+    <div id="viewfinder" class="viewfinder" style="border:none;">
       <!-- Laser Pindai Neon Ungu Berpendar -->
       <div id="laser-scanner" class="laser-scanner" aria-hidden="true">
         <div class="laser-beam"></div>
         <div class="laser-glow"></div>
       </div>
 
-      <!-- Animasi Ceklis Sukses di Tengah Viewfinder -->
+      <!-- Animasi Ceklis Sukses di Tengah -->
       <div id="success-badge" class="success-badge" aria-hidden="true">
         <div class="success-glow-halo"></div>
         <div class="success-rays">
@@ -72,10 +65,10 @@
         </svg>
       </button>
 
-      <!-- Mini Chip Status GPU & Kamera -->
-      <div id="ai-chip" class="ai-status-chip" role="status" title="Ketuk untuk buka diagnostik">
+      <!-- Mini Chip Status Model AI -->
+      <div id="ai-chip" class="ai-status-chip" role="status" title="Status Model">
         <span class="chip-pulse"></span>
-        <span id="chip-text" class="chip-text">AI Scanner Active</span>
+        <span id="chip-text" class="chip-text">Custom CNN Ready</span>
       </div>
 
       <div class="top-actions-right">
@@ -87,14 +80,6 @@
             <circle cx="12" cy="12" r="3"></circle>
             <path d="m18 22-3-3 3-3"></path>
             <path d="m6 2 3 3-3 3"></path>
-          </svg>
-        </button>
-
-        <button id="btn-menu" class="nav-circle-btn" type="button" aria-label="Menu Opsi & Total">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="5" r="2.2"></circle>
-            <circle cx="12" cy="12" r="2.2"></circle>
-            <circle cx="12" cy="19" r="2.2"></circle>
           </svg>
         </button>
       </div>
@@ -173,76 +158,11 @@
     </aside>
   </div>
 
-  <!-- Modal Bottom Sheet Menu (Total Akumulasi & Pengaturan & MLOps Diagnostic) -->
-  <div id="menu-backdrop" class="menu-backdrop" hidden>
-    <div id="menu-sheet" class="menu-bottom-sheet">
-      <div class="sheet-handle"></div>
-      
-      <div class="sheet-header">
-        <h2 class="sheet-title">Rupiah Reader</h2>
-        <button id="btn-close-sheet" class="sheet-close-btn" type="button" aria-label="Tutup menu">✕</button>
-      </div>
-
-      <div class="sheet-total-card">
-        <span class="total-caption">Total Akumulasi Belanja</span>
-        <span id="sheet-total-value" class="total-big-number">Rp 0</span>
-        <div class="total-actions-row">
-          <button id="btn-add-total" class="sheet-btn primary-btn" type="button">➕ Tambah Hasil Terakhir</button>
-          <button id="btn-reset-total" class="sheet-btn secondary-btn" type="button">🔄 Reset</button>
-        </div>
-      </div>
-
-      <div class="sheet-info-group">
-        <div class="sheet-info-row">
-          <span class="info-label">Model AI (Client-Side)</span>
-          <span class="info-val">MobileNetV2 Fine-Tuned (95.03%)</span>
-        </div>
-        <div class="sheet-info-row">
-          <span class="info-label">Inference Engine</span>
-          <span id="sheet-gpu-val" class="info-val">TensorFlow.js WebGL GPU</span>
-        </div>
-        <div class="sheet-info-row">
-          <span class="info-label">Kamera Aktif</span>
-          <span id="sheet-cam-val" class="info-val">Webcam</span>
-        </div>
-        <div class="sheet-info-row">
-          <span class="info-label">Panduan Suara (TTS)</span>
-          <span id="sheet-tts-status" class="info-val">Bahasa Indonesia (Aktif)</span>
-        </div>
-      </div>
-
-      <!-- MLOps Diagnostic Panel -->
-      <div class="sheet-diagnostic-card">
-        <div class="diag-header">
-          <span class="diag-title">📊 MLOps Diagnostic Panel</span>
-          <span id="diag-state-badge" class="diag-badge badge-idle">IDLE</span>
-        </div>
-        <div class="diag-grid">
-          <div class="diag-item"><span class="diag-lbl">Model:</span> <span id="diag-model">MobileNetV2 v2.1.0</span></div>
-          <div class="diag-item"><span class="diag-lbl">Engine:</span> <span id="diag-backend">WebGL GPU</span></div>
-          <div class="diag-item"><span class="diag-lbl">Input:</span> <span id="diag-input">224×224 RGB [0,1]</span></div>
-          <div class="diag-item"><span class="diag-lbl">Latensi:</span> <span id="diag-latency">- ms</span></div>
-          <div class="diag-item"><span class="diag-lbl">Prediksi:</span> <span id="diag-prediction">-</span></div>
-          <div class="diag-item"><span class="diag-lbl">Confidence:</span> <span id="diag-conf">-</span></div>
-        </div>
-        <div class="diag-top3">
-          <div class="diag-top3-label">Distribusi Top-3 Kelas:</div>
-          <div id="diag-top3-list" class="diag-top3-list">
-            <span style="opacity:0.6;">Belum ada hasil pemindaian</span>
-          </div>
-        </div>
-      </div>
-      
-      <p class="sheet-hint">💡 Tip: Ketuk layar 1x untuk memindai uang, ketuk 2x untuk langsung menambah ke total.</p>
-    </div>
-  </div>
-
   <!-- Screen reader live region -->
   <p id="sr-status" class="sr-only" aria-live="polite"></p>
 
   <!-- TensorFlow.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-  <script src="coin-reader.js?v=9.2"></script>
-  <script src="script.js?v=10.1"></script>
+  <script src="script.js?v=11.0"></script>
 </body>
 </html>
