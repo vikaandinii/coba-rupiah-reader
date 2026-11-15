@@ -45,3 +45,5 @@ Aplikasi web ini dapat langsung dicoba oleh siapa saja di browser:
 4. **Buka di browser:**
    - Frontend: `http://localhost:8000`
    - Dokumentasi Swagger API: `http://localhost:8000/docs`
+
+<!-- vercel trigger build -->
