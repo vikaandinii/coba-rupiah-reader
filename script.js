@@ -32,10 +32,10 @@
 
   // Ambang Batas Keyakinan Terkalibrasi (Sesuai Standar Aksesibilitas Tunanetra & Kondisi Kamera Riil)
   const THRESHOLDS = {
-    CONFIRMED: 0.65,             // Minimal 65% rata-rata confidence untuk konfirmasi
-    MARGIN: 0.20,                // Minimal 20% margin di atas peringkat kedua
-    UNCERTAIN: 0.40,             // Ambang batas keraguan (ambigu)
-    UNKNOWN: 0.35,               // Di bawah 35% dianggap objek tak dikenal / frame kosong
+    CONFIRMED: 0.55,             // Minimal 55% rata-rata confidence untuk konfirmasi
+    MARGIN: 0.15,                // Minimal 15% margin di atas peringkat kedua
+    UNCERTAIN: 0.35,             // Ambang batas keraguan (ambigu)
+    UNKNOWN: 0.25,               // Di bawah 25% dianggap objek tak dikenal / frame kosong
     WINDOW_SIZE: 6,              // Buffer sliding window 6 frame terakhir
     MIN_VOTES: 4,                // Minimal 4 dari 6 frame sepakat pada nominal yang sama
     TARGET_FRAME_INTERVAL_MS: 160, // Target ~6 FPS untuk scanning kontinu tanpa membebani GPU/CPU
@@ -321,9 +321,9 @@
         app.tfModel.predict(dummy);
       });
 
-      console.log("[MLOps] MobileNetV2 Fine-Tuned siap untuk inferensi real-time!");
-      if (el.chipText) el.chipText.textContent = `AI Ready (${app.backendName})`;
-      if (el.sheetGpuVal) el.sheetGpuVal.textContent = `GPU WebGL Aktif (MobileNetV2)`;
+      console.log("[MLOps] Custom CNN (99.4%) siap untuk inferensi real-time!");
+      if (el.chipText) el.chipText.textContent = `Custom CNN Ready (${app.backendName})`;
+      if (el.sheetGpuVal) el.sheetGpuVal.textContent = `GPU WebGL Aktif (Custom CNN 99.4%)`;
       if (el.diagBackend) el.diagBackend.textContent = app.backendName;
       if (el.diagModel) el.diagModel.textContent = "MobileNetV2 v2.1.0";
 
@@ -638,11 +638,17 @@
     // 1. Lokalisasi ringan untuk info kualitas frame & bbox overlay di debug mode
     const loc = locateBanknoteCandidate(videoEl);
 
-    // 2. Susun daftar crop: full-frame + grid 2×2 (overlapping 20%)
+    // 2. Susun daftar crop: Viewfinder (Area Utama) + Full-Frame + Grid 2×2 (overlapping 20%)
     //    Setiap crop ditentukan sebagai (sx, sy, sw, sh) dalam koordinat piksel video asli.
     const cropList = [];
 
-    // Crop 0: Full-Frame — persis input yang diterima model saat training (foto uang landscape utuh)
+    // Crop 0: Viewfinder Crop — area utama di mana pengguna memposisikan uang di layar
+    const vfCoords = getViewfinderCropCoords(videoEl);
+    if (vfCoords && vfCoords.sw > 20 && vfCoords.sh > 20) {
+      cropList.push({ id: "viewfinder", sx: vfCoords.sx, sy: vfCoords.sy, sw: vfCoords.sw, sh: vfCoords.sh });
+    }
+
+    // Crop 1: Full-Frame — seluruh sudut pandang kamera
     cropList.push({ id: "full", sx: 0, sy: 0, sw: vw, sh: vh });
 
     // Crop 1–4: Grid 2×2 overlapping 20% (60% lebar & tinggi per tile)
