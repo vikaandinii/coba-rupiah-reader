@@ -359,21 +359,42 @@
 
       console.log(`[Rupiah AI] TF.js Backend aktif: ${tf.getBackend()}`);
 
-      // Lokasi Model Artifacts
-      const modelLocations = [
-        "./model_tfjs/model.json",
-        "model_tfjs/model.json",
-        "../model_tfjs/model.json"
-      ];
-
+      const IDB_KEY = "indexeddb://rupiah-mobilenetv2-v14";
       let loaded = null;
-      for (const loc of modelLocations) {
-        try {
-          console.log(`[Rupiah AI] Memuat model dari: ${loc}`);
-          loaded = await tf.loadLayersModel(loc);
-          if (loaded) break;
-        } catch (err) {
-          console.warn(`[Rupiah AI] Gagal memuat dari ${loc}:`, err);
+
+      // 1. Cek cache IndexedDB agar loading instan (< 0.5 detik) pada kunjungan berikutnya
+      try {
+        loaded = await tf.loadLayersModel(IDB_KEY);
+        console.log("[Rupiah AI] Model dimuat instan dari cache IndexedDB!");
+      } catch (_) {
+        // Belum ada di cache, unduh dari server
+      }
+
+      // 2. Unduh dari server dengan progress bar persentase jika belum ada di cache
+      if (!loaded) {
+        const modelLocations = [
+          "./model_tfjs/model.json",
+          "model_tfjs/model.json"
+        ];
+        for (const loc of modelLocations) {
+          try {
+            console.log(`[Rupiah AI] Mengunduh model dari: ${loc}`);
+            loaded = await tf.loadLayersModel(loc, {
+              onProgress: (fraction) => {
+                if (el.chipText) {
+                  const pct = Math.min(99, Math.round(fraction * 100));
+                  el.chipText.textContent = `Loading AI ${pct}%`;
+                }
+              }
+            });
+            if (loaded) {
+              // Simpan ke IndexedDB di background untuk kunjungan berikutnya
+              loaded.save(IDB_KEY).catch(() => {});
+              break;
+            }
+          } catch (err) {
+            console.warn(`[Rupiah AI] Gagal memuat dari ${loc}:`, err);
+          }
         }
       }
 
@@ -701,50 +722,49 @@
 
     const loc = locateBanknoteCandidate(videoEl);
 
-    // Susun crop cerdas yang menangkap uang di sudut manapun pengguna memegangnya:
-    const cropList = [];
+    // Susun 3-4 crop cerdas (cepat & hemat GPU) yang mencakup segala sudut & jarak:
+    const cropList = [
+      // 1. Natural Center (Area tengah)
+      { id: "center", sx: Math.round(vw * 0.10), sy: Math.round(vh * 0.16), sw: Math.round(vw * 0.80), sh: Math.round(vh * 0.68) },
+      // 2. Center Vertical (Jika uang dipegang tegak/portrait)
+      { id: "vertical", sx: Math.round(vw * 0.16), sy: Math.round(vh * 0.10), sw: Math.round(vw * 0.68), sh: Math.round(vh * 0.80) },
+      // 3. Full Frame (Jika uang agak jauh)
+      { id: "full", sx: 0, sy: 0, sw: vw, sh: vh }
+    ];
 
-    // 1. Natural Center (Area tengah tempat tangan memegang uang secara alami)
-    cropList.push({ id: "center", sx: Math.round(vw * 0.10), sy: Math.round(vh * 0.18), sw: Math.round(vw * 0.80), sh: Math.round(vh * 0.64) });
-
-    // 2. Center Vertical (Khusus jika uang dipegang tegak/portrait)
-    cropList.push({ id: "vertical", sx: Math.round(vw * 0.16), sy: Math.round(vh * 0.10), sw: Math.round(vw * 0.68), sh: Math.round(vh * 0.80) });
-
-    // 3. Center Tight (Jika uang dipegang agak dekat ke kamera)
-    cropList.push({ id: "tight", sx: Math.round(vw * 0.18), sy: Math.round(vh * 0.28), sw: Math.round(vw * 0.64), sh: Math.round(vh * 0.44) });
-
-    // 4. Full Frame (Jika uang dipegang agak jauh)
-    cropList.push({ id: "full", sx: 0, sy: 0, sw: vw, sh: vh });
-
-    // 5. Upper & Lower Area (Jika tangan memegang uang agak ke atas atau ke bawah)
-    cropList.push({ id: "upper", sx: Math.round(vw * 0.10), sy: Math.round(vh * 0.05), sw: Math.round(vw * 0.80), sh: Math.round(vh * 0.50) });
-    cropList.push({ id: "lower", sx: Math.round(vw * 0.10), sy: Math.round(vh * 0.45), sw: Math.round(vw * 0.80), sh: Math.round(vh * 0.50) });
-
-    // Crop 5: Area lokalisasi (hanya jika coverage wajar: tidak terlalu luas dan tidak terlalu kecil)
+    // 4. Area lokalisasi otomatis (jika terdeteksi kandidat uang yang jelas)
     if (loc.coverageRatio >= 0.04 && loc.coverageRatio <= 0.65 && loc.status === "OK") {
       cropList.push({ id: "loc", sx: loc.sx, sy: loc.sy, sw: loc.sw, sh: loc.sh });
     }
 
-    // 3. Jalankan semua crop melalui model, kumpulkan skor
-    let bestResult = null;
-    let bestScore = -1;
-
-    // Gunakan satu canvas yang sudah ada (extractTensorAndCanvas memakai preprocessCanvas singleton)
-    // Proses satu per satu untuk menghindari race condition pada canvas bersama.
+    // 3. Gabungkan semua crop menjadi 1 batch tensor untuk single-pass GPU inference (3-4x lebih cepat!)
+    const cropTensors = [];
+    let lastCanvas = null;
     for (const crop of cropList) {
       const { tensor, canvas } = extractTensorAndCanvas(
         videoEl, crop.sx, crop.sy, crop.sw, crop.sh, isFrontCam
       );
+      cropTensors.push(tensor);
+      lastCanvas = canvas;
+    }
 
-      let probs;
-      try {
-        const pred = app.tfModel.predict(tensor);
-        probs = Array.from(await pred.data());
-        pred.dispose();
-      } finally {
-        tensor.dispose();
-      }
+    let batchProbs;
+    const batchTensor = tf.concat(cropTensors, 0);
+    cropTensors.forEach((t) => t.dispose());
 
+    try {
+      const pred = app.tfModel.predict(batchTensor);
+      batchProbs = await pred.array();
+      pred.dispose();
+    } finally {
+      batchTensor.dispose();
+    }
+
+    let bestResult = null;
+    let bestScore = -1;
+
+    for (let i = 0; i < cropList.length; i++) {
+      const probs = batchProbs[i];
       const ranked = probs
         .map((prob, idx) => ({ ...BANKNOTE_CLASSES[idx], prob }))
         .sort((a, b) => b.prob - a.prob);
@@ -759,13 +779,13 @@
       if (score > bestScore) {
         bestScore = score;
         bestResult = {
-          source: crop.id,
+          source: cropList[i].id,
           top,
           second,
           margin,
           ranked,
           rawProbs: probs,
-          canvas   // canvas dari extractTensorAndCanvas adalah preprocessCanvas singleton
+          canvas: lastCanvas
         };
       }
     }
