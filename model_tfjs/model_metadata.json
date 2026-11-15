@@ -1,0 +1,36 @@
+{
+  "model_name": "MobileNetV2 Fine-Tuned (Rupiah Banknotes)",
+  "model_version": "2.1.0-client-tfjs",
+  "build_date": "2026-11-14",
+  "dataset_version": "rupiah-banknotes-v1.0 (1249 samples, 7 classes)",
+  "framework": "TensorFlow.js WebGL / WASM / CPU",
+  "input_shape": [1, 224, 224, 3],
+  "preprocessing": {
+    "resize": [224, 224],
+    "interpolation": "bilinear",
+    "normalization": "[0, 1] via div(255.0)",
+    "color_mode": "RGB"
+  },
+  "confidence_threshold": {
+    "minimum_predict": 0.45,
+    "candidate_detected": 0.55,
+    "confirmed_nominal": 0.65
+  },
+  "metrics": {
+    "test_set_size": 181,
+    "test_accuracy": 0.950276,
+    "precision_macro": 0.956008,
+    "recall_macro": 0.946977,
+    "f1_macro": 0.948867
+  },
+  "classes": {
+    "0": { "code": "idr_1000", "nominal": 1000, "name": "Satu Ribu Rupiah", "badge": "1.000", "color": "#10b981", "hero": "Tjut Meutia" },
+    "1": { "code": "idr_2000", "nominal": 2000, "name": "Dua Ribu Rupiah", "badge": "2.000", "color": "#6b7280", "hero": "Mohammad Hoesni Thamrin" },
+    "2": { "code": "idr_5000", "nominal": 5000, "name": "Lima Ribu Rupiah", "badge": "5.000", "color": "#ca8a04", "hero": "Dr. K.H. Idham Chalid" },
+    "3": { "code": "idr_10000", "nominal": 10000, "name": "Sepuluh Ribu Rupiah", "badge": "10.000", "color": "#9333ea", "hero": "Frans Kaisiepo" },
+    "4": { "code": "idr_20000", "nominal": 20000, "name": "Dua Puluh Ribu Rupiah", "badge": "20.000", "color": "#16a34a", "hero": "Dr. G.S.S.J. Ratulangi" },
+    "5": { "code": "idr_50000", "nominal": 50000, "name": "Lima Puluh Ribu Rupiah", "badge": "50.000", "color": "#2563eb", "hero": "Ir. H. Djuanda Kartawidjaja" },
+    "6": { "code": "idr_100000", "nominal": 100000, "name": "Seratus Ribu Rupiah", "badge": "100.000", "color": "#dc2626", "hero": "Dr. (H.C.) Ir. Soekarno & Drs. Moh. Hatta" }
+  }
+}
+

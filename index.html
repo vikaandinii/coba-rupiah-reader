@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="theme-color" content="#1e1b4b">
+  <meta name="description" content="Rupiah Reader – Pemindai Uang Rupiah Cerdas bertenaga AI dengan visual modern, panduan audio id-ID, dan akurasi tinggi.">
+  <title>Rupiah Reader – AI Money Scanner</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=9.2">
+</head>
+<body class="theme-modern">
+  <a class="skip-link" href="#tap-fullscreen">Lewati ke area pemindai</a>
+
+  <!-- Panggung Kamera Fullscreen -->
+  <div id="camera-stage" class="camera-stage">
+    <video id="camera-preview" autoplay playsinline muted></video>
+    <div class="camera-ambient-overlay"></div>
+    <canvas id="debug-overlay-canvas" class="debug-overlay-canvas" hidden></canvas>
+    <canvas id="capture-canvas" hidden></canvas>
+  </div>
+
+  <!-- Area Sentuh Layar Penuh -->
+  <button id="tap-fullscreen" class="tap-fullscreen-btn" type="button" aria-label="Ketuk layar di mana saja untuk memindai uang, ketuk dua kali untuk menjumlahkan total">
+    
+    <!-- Viewfinder Persegi Panjang Vertikal (Sesuai Referensi GIF) -->
+    <div id="viewfinder" class="viewfinder">
+      <!-- 4 Sudut Rounded Putih Tebal -->
+      <span class="vf-corner corner-tl" aria-hidden="true"></span>
+      <span class="vf-corner corner-tr" aria-hidden="true"></span>
+      <span class="vf-corner corner-bl" aria-hidden="true"></span>
+      <span class="vf-corner corner-br" aria-hidden="true"></span>
+
+      <!-- Laser Pindai Neon Ungu Berpendar -->
+      <div id="laser-scanner" class="laser-scanner" aria-hidden="true">
+        <div class="laser-beam"></div>
+        <div class="laser-glow"></div>
+      </div>
+
+      <!-- Animasi Ceklis Sukses di Tengah Viewfinder -->
+      <div id="success-badge" class="success-badge" aria-hidden="true">
+        <div class="success-glow-halo"></div>
+        <div class="success-rays">
+          <span class="ray r-1"></span>
+          <span class="ray r-2"></span>
+          <span class="ray r-3"></span>
+          <span class="ray r-4"></span>
+        </div>
+        <div class="success-circle">
+          <svg class="check-svg" viewBox="0 0 24 24" fill="none">
+            <path d="M5 13l4 4L19 7" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </button>
+
+  <!-- Lapisan Antarmuka UI Terapung (Floating Glass Interface) -->
+  <div class="floating-ui-layer">
+    
+    <!-- Top Navigation Bar (Frosted Circular Buttons) -->
+    <header class="top-nav-bar">
+      <button id="btn-back" class="nav-circle-btn" type="button" aria-label="Pindai Ulang">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+
+      <!-- Mini Chip Status GPU & Kamera -->
+      <div id="ai-chip" class="ai-status-chip" role="status" title="Ketuk untuk buka diagnostik">
+        <span class="chip-pulse"></span>
+        <span id="chip-text" class="chip-text">AI Scanner Active</span>
+      </div>
+
+      <div class="top-actions-right">
+        <!-- Tombol Ganti Kamera (Webcam Laptop <-> Kamera Belakang HP) -->
+        <button id="btn-switch-cam" class="nav-circle-btn" type="button" aria-label="Ganti Kamera">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+            <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="m18 22-3-3 3-3"></path>
+            <path d="m6 2 3 3-3 3"></path>
+          </svg>
+        </button>
+
+        <button id="btn-menu" class="nav-circle-btn" type="button" aria-label="Menu Opsi & Total">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="2.2"></circle>
+            <circle cx="12" cy="12" r="2.2"></circle>
+            <circle cx="12" cy="19" r="2.2"></circle>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Tombol Zoom Melayang di Kiri Bawah (1x) -->
+    <button id="btn-zoom" class="floating-zoom-btn" type="button" aria-label="Ganti Zoom Kamera">
+      <span id="zoom-label">1x</span>
+    </button>
+
+    <!-- Floating Bottom Pill Card (Komponen Inti Sesuai GIF Referensi) -->
+    <div id="bottom-card" class="bottom-pill-card state-idle" role="region" aria-live="polite">
+      
+      <!-- Slot Kiri: Ikon Dinamis (Reticle -> Spinner -> Thumbnail) -->
+      <div id="pill-icon-slot" class="pill-icon-slot">
+        
+        <!-- Mode Idle: Kotak Ungu Lembut dengan Ikon Reticle -->
+        <div id="icon-idle" class="icon-subview subview-idle">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 8V5a1 1 0 0 1 1-1h3"></path>
+            <path d="M16 4h3a1 1 0 0 1 1 1v3"></path>
+            <path d="M4 16v3a1 1 0 0 0 1 1h3"></path>
+            <path d="M16 20h3a1 1 0 0 0 1-1v-3"></path>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+        </div>
+
+        <!-- Mode Scanning: Ring Spinner Berputar Halus -->
+        <div id="icon-scanning" class="icon-subview subview-scanning">
+          <div class="spinner-ring"></div>
+        </div>
+
+        <!-- Mode Result: Thumbnail Uang Realistis Sesuai Hasil Deteksi -->
+        <div id="icon-result" class="icon-subview subview-result">
+          <div id="banknote-thumbnail" class="banknote-thumbnail val-2000">
+            <span class="thumb-watermark">IDR</span>
+            <span id="thumb-number" class="thumb-number">2.000</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slot Tengah: Teks Status & Nominal Uang -->
+      <div class="pill-text-content">
+        <span id="pill-subtitle" class="pill-subtitle">Scanning...</span>
+        <span id="pill-title" class="pill-title">Posisikan Uang Kertas di Sini</span>
+      </div>
+
+      <!-- Slot Kanan: Tombol Flashlight / Senter Bulat Ungu -->
+      <button id="btn-torch" class="pill-torch-btn" type="button" aria-label="Nyalakan senter kamera">
+        <svg class="torch-svg" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7 2h10a1 1 0 0 1 1 1v3.5a2 2 0 0 1-.6 1.4L15 10.3V21a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-10.7L6.6 7.9A2 2 0 0 1 6 6.5V3a1 1 0 0 1 1-1zm3 10v7h4v-7h-4zm-1-7v1.5l1.6 1.9a1 1 0 0 1 .4.6V9h4v-.01a1 1 0 0 1 .4-.58L16 6.5V5H9z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Visual Debug HUD (Aktif jika URL memiliki ?debug=1) -->
+    <aside id="debug-hud" class="debug-hud" hidden aria-hidden="true">
+      <div class="debug-header">
+        <span class="debug-tag">LIVE MLOPS DEBUG</span>
+        <span id="debug-fps">0 FPS</span>
+      </div>
+      <div class="debug-pip-container">
+        <canvas id="debug-tensor-preview" width="224" height="224"></canvas>
+        <div class="debug-pip-label">Input Model (224×224 Pad)</div>
+      </div>
+      <div class="debug-metrics">
+        <div class="dbg-row"><span>Status:</span> <span id="debug-status">-</span></div>
+        <div class="dbg-row"><span>Crop:</span> <span id="debug-source">-</span></div>
+        <div class="dbg-row"><span>BBox:</span> <span id="debug-bbox">-</span></div>
+        <div class="dbg-row"><span>Kualitas:</span> <span id="debug-quality">OK</span></div>
+        <div class="dbg-row"><span>Buffer (6):</span> <span id="debug-window">-</span></div>
+        <div class="dbg-row"><span>Winner:</span> <span id="debug-winner">-</span></div>
+        <div class="dbg-row"><span>Avg Conf:</span> <span id="debug-conf">-</span></div>
+        <div class="dbg-row"><span>Margin:</span> <span id="debug-margin">-</span></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Modal Bottom Sheet Menu (Total Akumulasi & Pengaturan & MLOps Diagnostic) -->
+  <div id="menu-backdrop" class="menu-backdrop" hidden>
+    <div id="menu-sheet" class="menu-bottom-sheet">
+      <div class="sheet-handle"></div>
+      
+      <div class="sheet-header">
+        <h2 class="sheet-title">Rupiah Reader</h2>
+        <button id="btn-close-sheet" class="sheet-close-btn" type="button" aria-label="Tutup menu">✕</button>
+      </div>
+
+      <div class="sheet-total-card">
+        <span class="total-caption">Total Akumulasi Belanja</span>
+        <span id="sheet-total-value" class="total-big-number">Rp 0</span>
+        <div class="total-actions-row">
+          <button id="btn-add-total" class="sheet-btn primary-btn" type="button">➕ Tambah Hasil Terakhir</button>
+          <button id="btn-reset-total" class="sheet-btn secondary-btn" type="button">🔄 Reset</button>
+        </div>
+      </div>
+
+      <div class="sheet-info-group">
+        <div class="sheet-info-row">
+          <span class="info-label">Model AI (Client-Side)</span>
+          <span class="info-val">MobileNetV2 Fine-Tuned (95.03%)</span>
+        </div>
+        <div class="sheet-info-row">
+          <span class="info-label">Inference Engine</span>
+          <span id="sheet-gpu-val" class="info-val">TensorFlow.js WebGL GPU</span>
+        </div>
+        <div class="sheet-info-row">
+          <span class="info-label">Kamera Aktif</span>
+          <span id="sheet-cam-val" class="info-val">Webcam</span>
+        </div>
+        <div class="sheet-info-row">
+          <span class="info-label">Panduan Suara (TTS)</span>
+          <span id="sheet-tts-status" class="info-val">Bahasa Indonesia (Aktif)</span>
+        </div>
+      </div>
+
+      <!-- MLOps Diagnostic Panel -->
+      <div class="sheet-diagnostic-card">
+        <div class="diag-header">
+          <span class="diag-title">📊 MLOps Diagnostic Panel</span>
+          <span id="diag-state-badge" class="diag-badge badge-idle">IDLE</span>
+        </div>
+        <div class="diag-grid">
+          <div class="diag-item"><span class="diag-lbl">Model:</span> <span id="diag-model">MobileNetV2 v2.1.0</span></div>
+          <div class="diag-item"><span class="diag-lbl">Engine:</span> <span id="diag-backend">WebGL GPU</span></div>
+          <div class="diag-item"><span class="diag-lbl">Input:</span> <span id="diag-input">224×224 RGB [0,1]</span></div>
+          <div class="diag-item"><span class="diag-lbl">Latensi:</span> <span id="diag-latency">- ms</span></div>
+          <div class="diag-item"><span class="diag-lbl">Prediksi:</span> <span id="diag-prediction">-</span></div>
+          <div class="diag-item"><span class="diag-lbl">Confidence:</span> <span id="diag-conf">-</span></div>
+        </div>
+        <div class="diag-top3">
+          <div class="diag-top3-label">Distribusi Top-3 Kelas:</div>
+          <div id="diag-top3-list" class="diag-top3-list">
+            <span style="opacity:0.6;">Belum ada hasil pemindaian</span>
+          </div>
+        </div>
+      </div>
+      
+      <p class="sheet-hint">💡 Tip: Ketuk layar 1x untuk memindai uang, ketuk 2x untuk langsung menambah ke total.</p>
+    </div>
+  </div>
+
+  <!-- Screen reader live region -->
+  <p id="sr-status" class="sr-only" aria-live="polite"></p>
+
+  <!-- TensorFlow.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="coin-reader.js?v=9.2"></script>
+  <script src="script.js?v=10.1"></script>
+</body>
+</html>
