@@ -30,17 +30,17 @@
   ];
   window.BANKNOTE_CLASSES = BANKNOTE_CLASSES;
 
-  // Ambang Batas Keyakinan Terkalibrasi (Sesuai Standar Aksesibilitas Tunanetra & Kondisi Kamera Riil)
+  // Ambang Batas Keyakinan Terkalibrasi (Aksesibilitas Tunanetra: Cepat, Responsif, Bebas Posisi)
   const THRESHOLDS = {
-    CONFIRMED: 0.55,             // Minimal 55% rata-rata confidence untuk konfirmasi
-    MARGIN: 0.15,                // Minimal 15% margin di atas peringkat kedua
-    UNCERTAIN: 0.35,             // Ambang batas keraguan (ambigu)
-    UNKNOWN: 0.25,               // Di bawah 25% dianggap objek tak dikenal / frame kosong
-    WINDOW_SIZE: 6,              // Buffer sliding window 6 frame terakhir
-    MIN_VOTES: 4,                // Minimal 4 dari 6 frame sepakat pada nominal yang sama
-    TARGET_FRAME_INTERVAL_MS: 160, // Target ~6 FPS untuk scanning kontinu tanpa membebani GPU/CPU
-    GUIDANCE_COOLDOWN_MS: 3800,  // Jeda minimal antar petunjuk suara (mencegah spam suara)
-    SPEECH_SAME_BILL_COOLDOWN_MS: 7000 // Jeda pengucapan ulang bila uang yang sama masih di depan kamera
+    CONFIRMED: 0.48,             // 48% confidence sudah cukup untuk konfirmasi otomatis
+    MARGIN: 0.10,                // 10% margin di atas peringkat kedua
+    UNCERTAIN: 0.28,             // Ambang batas keraguan
+    UNKNOWN: 0.18,               // Di bawah 18% dianggap frame kosong
+    WINDOW_SIZE: 4,              // 4 frame buffer (cepat dan responsif)
+    MIN_VOTES: 2,                // Cukup 2 frame sepakat untuk langsung bicara
+    TARGET_FRAME_INTERVAL_MS: 130, // ~8 FPS
+    GUIDANCE_COOLDOWN_MS: 3800,  // Jeda antar petunjuk suara
+    SPEECH_SAME_BILL_COOLDOWN_MS: 5000 // Jeda bicara ulang uang yang sama
   };
 
   // ---------------------------------------------------------------------------
@@ -197,18 +197,61 @@
   };
 
   // -------------------------------------------------------------------------
-  // Suara Text-to-Speech id-ID
+  // Audio Pipeline Ramah Mobile & Tunanetra: Web Audio Chime + SpeechSynthesis
   // -------------------------------------------------------------------------
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) audioCtx = new AudioCtx();
+    }
+    return audioCtx;
+  }
+
+  // Chime nada ganda (D5 -> A5) yang 100% selalu berbunyi di semua browser HP
+  function playSuccessChime() {
+    try {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume();
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, now);
+      gain1.gain.setValueAtTime(0.35, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.12);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(880, now + 0.08);
+      gain2.gain.setValueAtTime(0.40, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.08);
+      osc2.stop(now + 0.32);
+    } catch (_) {}
+  }
+
   const ttsAda = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 
   function pilihVoice() {
     if (!ttsAda) return;
-    const daftar = speechSynthesis.getVoices();
-    const norm = (v) => (v.lang || "").toLowerCase().replace("_", "-");
-    app.voice =
-      daftar.find((v) => norm(v) === "id-id") ||
-      daftar.find((v) => norm(v).startsWith("id")) ||
-      null;
+    try {
+      const daftar = speechSynthesis.getVoices();
+      const norm = (v) => (v.lang || "").toLowerCase().replace("_", "-");
+      app.voice =
+        daftar.find((v) => norm(v) === "id-id") ||
+        daftar.find((v) => norm(v).startsWith("id")) ||
+        null;
+    } catch (_) {}
   }
 
   if (ttsAda) {
@@ -216,28 +259,54 @@
     speechSynthesis.addEventListener("voiceschanged", pilihVoice);
   }
 
-  function speak(teks) {
-    return new Promise((resolve) => {
-      if (!ttsAda) {
-        announce(teks);
-        resolve();
-        return;
-      }
+  // Buka blokir audio browser HP pada interaksi pertama apapun
+  function unlockAudioPipeline() {
+    const ctx = getAudioCtx();
+    if (ctx && ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    if (ttsAda) {
+      window.speechSynthesis.resume();
       try {
-        speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(teks);
-        u.lang = "id-ID";
-        u.rate = 0.95;
-        u.pitch = 1.0;
-        u.volume = 1.0;
-        if (app.voice) u.voice = app.voice;
-        u.onend = () => resolve();
-        u.onerror = () => resolve();
-        setTimeout(() => speechSynthesis.speak(u), 40);
-      } catch (_) {
-        resolve();
+        const dummy = new SpeechSynthesisUtterance(" ");
+        dummy.volume = 0.01;
+        window.speechSynthesis.speak(dummy);
+      } catch (_) {}
+    }
+  }
+  window.addEventListener("touchstart", unlockAudioPipeline, { passive: true });
+  window.addEventListener("touchend", unlockAudioPipeline, { passive: true });
+  window.addEventListener("pointerdown", unlockAudioPipeline, { passive: true });
+  window.addEventListener("click", unlockAudioPipeline, { passive: true });
+
+  function speak(teks) {
+    announce(teks);
+    if (!ttsAda) return;
+    try {
+      window.speechSynthesis.resume();
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
       }
-    });
+      const u = new SpeechSynthesisUtterance(teks);
+      u.lang = "id-ID";
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      if (app.voice) u.voice = app.voice;
+      u.onerror = (e) => {
+        console.warn("[TTS Fallback]", e);
+        if (u.lang === "id-ID") {
+          try {
+            const fallbackU = new SpeechSynthesisUtterance(teks);
+            fallbackU.rate = 1.0;
+            window.speechSynthesis.speak(fallbackU);
+          } catch (_) {}
+        }
+      };
+      window.speechSynthesis.speak(u);
+    } catch (e) {
+      console.warn("[TTS Exception]", e);
+    }
   }
 
   function speakGuidance(teks) {
@@ -577,7 +646,7 @@
   let preprocessCanvas = null;
   let preprocessCtx = null;
 
-  function extractTensorAndCanvas(videoEl, sx, sy, sw, sh, flipHorizontal = false) {
+  function extractTensorAndCanvas(videoEl, sx, sy, sw, sh, flipHorizontal = false, autoRotateLandscape = true) {
     if (!preprocessCanvas) {
       preprocessCanvas = document.createElement("canvas");
       preprocessCanvas.width = 224;
@@ -585,20 +654,29 @@
       preprocessCtx = preprocessCanvas.getContext("2d", { willReadFrequently: true });
     }
 
-    // 1. Isi kanvas dengan padding hitam rgb(0,0,0) (persis ImageOps.contain di notebook)
     preprocessCtx.save();
     preprocessCtx.fillStyle = "#000000";
     preprocessCtx.fillRect(0, 0, 224, 224);
 
-    // 2. Mode 'pad': jaga rasio aspek asli uang kertas
-    const containScale = Math.min(224 / sw, 224 / sh);
-    const destW = Math.max(1, Math.round(sw * containScale));
-    const destH = Math.max(1, Math.round(sh * containScale));
+    // Otomatis putar jika uang dipegang vertikal/tegak oleh tunanetra agar sesuai dataset training
+    const isVertical = autoRotateLandscape && (sh > sw * 1.15);
+    const effW = isVertical ? sh : sw;
+    const effH = isVertical ? sw : sh;
+
+    const containScale = Math.min(224 / effW, 224 / effH);
+    const destW = Math.max(1, Math.round(effW * containScale));
+    const destH = Math.max(1, Math.round(effH * containScale));
     const destX = Math.round((224 - destW) / 2);
     const destY = Math.round((224 - destH) / 2);
 
     preprocessCtx.imageSmoothingEnabled = true;
     preprocessCtx.imageSmoothingQuality = "high";
+
+    if (isVertical) {
+      preprocessCtx.translate(112, 112);
+      preprocessCtx.rotate(Math.PI / 2);
+      preprocessCtx.translate(-112, -112);
+    }
 
     if (flipHorizontal) {
       // Un-mirror front-facing selfie camera agar tulisan nominal & potret pahlawan tidak terbalik
@@ -611,7 +689,6 @@
     preprocessCtx.restore();
 
     // 3. Konversi ke Tensor float32 [1, 224, 224, 3] dalam rentang [0, 255] RGB
-    // CATATAN: TIDAK DIBAGI 255.0 (Model sudah memiliki layer internal Rescaling(1./255))
     const tensor = tf.tidy(() => {
       return tf.browser.fromPixels(preprocessCanvas)
         .toFloat()
@@ -622,11 +699,8 @@
   }
 
   // -------------------------------------------------------------------------
-  // Inferensi Multi-Crop v10.1 (Full-Frame + Grid 2×2 — TANPA viewfinder)
+  // Inferensi Multi-Posisi Ramah Tunanetra (Bebas Arah & Posisi Kamera)
   // -------------------------------------------------------------------------
-  // Strategi: jalankan beberapa crop berbeda, pilih yang punya score tertinggi.
-  // Semua crop diproses dengan mode 'pad' (letterbox hitam) persis seperti training.
-  // TIDAK ADA crop dari viewfinder — seluruh frame kamera adalah area deteksi.
   async function predictBanknoteFrame(videoEl) {
     const vw = videoEl.videoWidth;
     const vh = videoEl.videoHeight;
@@ -635,35 +709,26 @@
     const t0 = performance.now();
     const isFrontCam = document.body.classList.contains("cam-user") || (app.currentFacingMode === "user");
 
-    // 1. Lokalisasi ringan untuk info kualitas frame & bbox overlay di debug mode
     const loc = locateBanknoteCandidate(videoEl);
 
-    // 2. Susun daftar crop: Viewfinder (Area Utama) + Full-Frame + Grid 2×2 (overlapping 20%)
-    //    Setiap crop ditentukan sebagai (sx, sy, sw, sh) dalam koordinat piksel video asli.
+    // Susun crop cerdas yang menangkap uang di sudut manapun pengguna memegangnya:
     const cropList = [];
 
-    // Crop 0: Viewfinder Crop — area utama di mana pengguna memposisikan uang di layar
-    const vfCoords = getViewfinderCropCoords(videoEl);
-    if (vfCoords && vfCoords.sw > 20 && vfCoords.sh > 20) {
-      cropList.push({ id: "viewfinder", sx: vfCoords.sx, sy: vfCoords.sy, sw: vfCoords.sw, sh: vfCoords.sh });
-    }
+    // 1. Natural Center (Area tengah tempat tangan memegang uang secara alami)
+    cropList.push({ id: "center", sx: Math.round(vw * 0.10), sy: Math.round(vh * 0.18), sw: Math.round(vw * 0.80), sh: Math.round(vh * 0.64) });
 
-    // Crop 1: Full-Frame — seluruh sudut pandang kamera
+    // 2. Center Vertical (Khusus jika uang dipegang tegak/portrait)
+    cropList.push({ id: "vertical", sx: Math.round(vw * 0.16), sy: Math.round(vh * 0.10), sw: Math.round(vw * 0.68), sh: Math.round(vh * 0.80) });
+
+    // 3. Center Tight (Jika uang dipegang agak dekat ke kamera)
+    cropList.push({ id: "tight", sx: Math.round(vw * 0.18), sy: Math.round(vh * 0.28), sw: Math.round(vw * 0.64), sh: Math.round(vh * 0.44) });
+
+    // 4. Full Frame (Jika uang dipegang agak jauh)
     cropList.push({ id: "full", sx: 0, sy: 0, sw: vw, sh: vh });
 
-    // Crop 1–4: Grid 2×2 overlapping 20% (60% lebar & tinggi per tile)
-    //   Ini memastikan uang yang ada di sudut manapun tetap terwakili utuh dalam setidaknya 1 crop.
-    const tileW = Math.round(vw * 0.60);
-    const tileH = Math.round(vh * 0.60);
-    const stepX = Math.round(vw * 0.40); // 40% step → 20% overlap
-    const stepY = Math.round(vh * 0.40);
-    for (let gy = 0; gy < 2; gy++) {
-      for (let gx = 0; gx < 2; gx++) {
-        const sx = Math.min(gx * stepX, vw - tileW);
-        const sy = Math.min(gy * stepY, vh - tileH);
-        cropList.push({ id: `g${gy}${gx}`, sx, sy, sw: tileW, sh: tileH });
-      }
-    }
+    // 5. Upper & Lower Area (Jika tangan memegang uang agak ke atas atau ke bawah)
+    cropList.push({ id: "upper", sx: Math.round(vw * 0.10), sy: Math.round(vh * 0.05), sw: Math.round(vw * 0.80), sh: Math.round(vh * 0.50) });
+    cropList.push({ id: "lower", sx: Math.round(vw * 0.10), sy: Math.round(vh * 0.45), sw: Math.round(vw * 0.80), sh: Math.round(vh * 0.50) });
 
     // Crop 5: Area lokalisasi (hanya jika coverage wajar: tidak terlalu luas dan tidak terlalu kecil)
     if (loc.coverageRatio >= 0.04 && loc.coverageRatio <= 0.65 && loc.status === "OK") {
@@ -971,6 +1036,10 @@
                   getar([80, 40, 80]);
                   showSuccessBloom();
                   updateResultUI(matchedClass);
+
+                  // Bunyikan Chime instan dan ucapkan nominal dengan suara id-ID
+                  playSuccessChime();
+                  speak(nominalToSpeech(matchedClass.nominal));
                 } else {
                   updateResultUI(matchedClass);
                 }
@@ -1089,20 +1158,21 @@
 
       getar([80, 40, 80]);
       showSuccessBloom();
+      playSuccessChime();
       speak(nominalToSpeech(selected.nominal));
       updateResultUI(selected);
     } else if (bestPred && bestPred.top.prob >= THRESHOLDS.UNCERTAIN) {
       el.bottomCard.className = "bottom-pill-card state-idle";
       el.pillSubtitle.textContent = "Kurang Jelas";
-      el.pillTitle.textContent = "Ubah Sudut Uang";
+      el.pillTitle.textContent = "Gerakkan Sedikit Uang";
       getar([60, 40, 60]);
-      speak("Uang belum terbaca jelas. Mohon ubah sedikit sudut uang.");
+      speak("Uang belum terbaca jelas. Gerakkan sedikit uang di depan kamera.");
     } else {
       el.bottomCard.className = "bottom-pill-card state-idle";
-      el.pillSubtitle.textContent = "Tidak Terdeteksi";
-      el.pillTitle.textContent = "Dekatkan Uang ke Kamera";
+      el.pillSubtitle.textContent = "Siap Memindai";
+      el.pillTitle.textContent = "Arahkan Uang ke Kamera";
       getar([100, 50, 100]);
-      speak("Uang tidak terdeteksi. Dekatkan uang ke kamera lalu coba lagi.");
+      speak("Uang belum terdeteksi. Dekatkan uang ke kamera.");
     }
   }
 
