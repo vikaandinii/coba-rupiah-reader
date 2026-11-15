@@ -390,8 +390,8 @@
         app.tfModel.predict(dummy);
       });
 
-      console.log("[Rupiah AI] Custom CNN (99.4%) siap untuk inferensi real-time!");
-      if (el.chipText) el.chipText.textContent = "Custom CNN Ready";
+      console.log("[Rupiah AI] Model siap untuk inferensi real-time!");
+      if (el.chipText) el.chipText.textContent = "AI Ready";
 
       // Jalankan loop pemindaian kontinu begitu model dan kamera siap
       startContinuousScanLoop();
@@ -656,32 +656,26 @@
 
     // Otomatis putar jika uang dipegang vertikal/tegak oleh tunanetra agar sesuai dataset training
     const isVertical = autoRotateLandscape && (sh > sw * 1.15);
-    const effW = isVertical ? sh : sw;
-    const effH = isVertical ? sw : sh;
+    const containScale = isVertical
+      ? Math.min(224 / sh, 224 / sw)
+      : Math.min(224 / sw, 224 / sh);
+    const drawW = Math.max(1, Math.round(sw * containScale));
+    const drawH = Math.max(1, Math.round(sh * containScale));
 
-    const containScale = Math.min(224 / effW, 224 / effH);
-    const destW = Math.max(1, Math.round(effW * containScale));
-    const destH = Math.max(1, Math.round(effH * containScale));
-    const destX = Math.round((224 - destW) / 2);
-    const destY = Math.round((224 - destH) / 2);
-
+    preprocessCtx.save();
+    preprocessCtx.fillStyle = "#000000";
+    preprocessCtx.fillRect(0, 0, 224, 224);
     preprocessCtx.imageSmoothingEnabled = true;
     preprocessCtx.imageSmoothingQuality = "high";
 
+    preprocessCtx.translate(112, 112);
     if (isVertical) {
-      preprocessCtx.translate(112, 112);
       preprocessCtx.rotate(Math.PI / 2);
-      preprocessCtx.translate(-112, -112);
     }
-
     if (flipHorizontal) {
-      // Un-mirror front-facing selfie camera agar tulisan nominal & potret pahlawan tidak terbalik
-      preprocessCtx.translate(224, 0);
       preprocessCtx.scale(-1, 1);
-      preprocessCtx.drawImage(videoEl, sx, sy, sw, sh, 224 - (destX + destW), destY, destW, destH);
-    } else {
-      preprocessCtx.drawImage(videoEl, sx, sy, sw, sh, destX, destY, destW, destH);
     }
+    preprocessCtx.drawImage(videoEl, sx, sy, sw, sh, -drawW / 2, -drawH / 2, drawW, drawH);
     preprocessCtx.restore();
 
     // 3. Konversi ke Tensor float32 [1, 224, 224, 3] dalam rentang [0, 255] RGB
