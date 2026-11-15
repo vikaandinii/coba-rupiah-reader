@@ -23,7 +23,10 @@
                 224,
                 224,
                 3
-              ]
+              ],
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "rupiah_image",
             "inbound_nodes": []
@@ -35,7 +38,10 @@
               "trainable": true,
               "dtype": "float32",
               "scale": 0.00392156862745098,
-              "offset": 0.0
+              "offset": 0.0,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "rescale_0_1",
             "inbound_nodes": [
@@ -83,12 +89,7 @@
                 "class_name": "Zeros",
                 "config": {}
               },
-              "kernel_regularizer": {
-                "class_name": "L2",
-                "config": {
-                  "l2": 0.0001
-                }
-              },
+              "kernel_regularizer": null,
               "bias_regularizer": null,
               "activity_regularizer": null,
               "kernel_constraint": null,
@@ -137,7 +138,10 @@
               "gamma_regularizer": null,
               "beta_constraint": null,
               "gamma_constraint": null,
-              "synchronized": false
+              "synchronized": false,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "batch_normalization",
             "inbound_nodes": [
@@ -157,7 +161,10 @@
               "name": "activation",
               "trainable": true,
               "dtype": "float32",
-              "activation": "relu"
+              "activation": "relu",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "activation",
             "inbound_nodes": [
@@ -205,12 +212,7 @@
                 "class_name": "Zeros",
                 "config": {}
               },
-              "kernel_regularizer": {
-                "class_name": "L2",
-                "config": {
-                  "l2": 0.0001
-                }
-              },
+              "kernel_regularizer": null,
               "bias_regularizer": null,
               "activity_regularizer": null,
               "kernel_constraint": null,
@@ -259,7 +261,10 @@
               "gamma_regularizer": null,
               "beta_constraint": null,
               "gamma_constraint": null,
-              "synchronized": false
+              "synchronized": false,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "batch_normalization_1",
             "inbound_nodes": [
@@ -279,7 +284,10 @@
               "name": "activation_1",
               "trainable": true,
               "dtype": "float32",
-              "activation": "relu"
+              "activation": "relu",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "activation_1",
             "inbound_nodes": [
@@ -308,7 +316,10 @@
                 2,
                 2
               ],
-              "data_format": "channels_last"
+              "data_format": "channels_last",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "max_pooling2d",
             "inbound_nodes": [
@@ -356,12 +367,7 @@
                 "class_name": "Zeros",
                 "config": {}
               },
-              "kernel_regularizer": {
-                "class_name": "L2",
-                "config": {
-                  "l2": 0.0001
-                }
-              },
+              "kernel_regularizer": null,
               "bias_regularizer": null,
               "activity_regularizer": null,
               "kernel_constraint": null,
@@ -410,7 +416,10 @@
               "gamma_regularizer": null,
               "beta_constraint": null,
               "gamma_constraint": null,
-              "synchronized": false
+              "synchronized": false,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "batch_normalization_2",
             "inbound_nodes": [
@@ -430,7 +439,10 @@
               "name": "activation_2",
               "trainable": true,
               "dtype": "float32",
-              "activation": "relu"
+              "activation": "relu",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "activation_2",
             "inbound_nodes": [
@@ -478,12 +490,7 @@
                 "class_name": "Zeros",
                 "config": {}
               },
-              "kernel_regularizer": {
-                "class_name": "L2",
-                "config": {
-                  "l2": 0.0001
-                }
-              },
+              "kernel_regularizer": null,
               "bias_regularizer": null,
               "activity_regularizer": null,
               "kernel_constraint": null,
@@ -532,7 +539,10 @@
               "gamma_regularizer": null,
               "beta_constraint": null,
               "gamma_constraint": null,
-              "synchronized": false
+              "synchronized": false,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "batch_normalization_3",
             "inbound_nodes": [
@@ -552,7 +562,10 @@
               "name": "activation_3",
               "trainable": true,
               "dtype": "float32",
-              "activation": "relu"
+              "activation": "relu",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "activation_3",
             "inbound_nodes": [
@@ -581,7 +594,10 @@
                 2,
                 2
               ],
-              "data_format": "channels_last"
+              "data_format": "channels_last",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "max_pooling2d_1",
             "inbound_nodes": [
@@ -629,12 +645,7 @@
                 "class_name": "Zeros",
                 "config": {}
               },
-              "kernel_regularizer": {
-                "class_name": "L2",
-                "config": {
-                  "l2": 0.0001
-                }
-              },
+              "kernel_regularizer": null,
               "bias_regularizer": null,
               "activity_regularizer": null,
               "kernel_constraint": null,
@@ -683,7 +694,10 @@
               "gamma_regularizer": null,
               "beta_constraint": null,
               "gamma_constraint": null,
-              "synchronized": false
+              "synchronized": false,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "batch_normalization_4",
             "inbound_nodes": [
@@ -703,7 +717,10 @@
               "name": "activation_4",
               "trainable": true,
               "dtype": "float32",
-              "activation": "relu"
+              "activation": "relu",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "activation_4",
             "inbound_nodes": [
@@ -751,12 +768,7 @@
                 "class_name": "Zeros",
                 "config": {}
               },
-              "kernel_regularizer": {
-                "class_name": "L2",
-                "config": {
-                  "l2": 0.0001
-                }
-              },
+              "kernel_regularizer": null,
               "bias_regularizer": null,
               "activity_regularizer": null,
               "kernel_constraint": null,
@@ -805,7 +817,10 @@
               "gamma_regularizer": null,
               "beta_constraint": null,
               "gamma_constraint": null,
-              "synchronized": false
+              "synchronized": false,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "batch_normalization_5",
             "inbound_nodes": [
@@ -825,7 +840,10 @@
               "name": "activation_5",
               "trainable": true,
               "dtype": "float32",
-              "activation": "relu"
+              "activation": "relu",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "activation_5",
             "inbound_nodes": [
@@ -854,7 +872,10 @@
                 2,
                 2
               ],
-              "data_format": "channels_last"
+              "data_format": "channels_last",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "max_pooling2d_2",
             "inbound_nodes": [
@@ -902,12 +923,7 @@
                 "class_name": "Zeros",
                 "config": {}
               },
-              "kernel_regularizer": {
-                "class_name": "L2",
-                "config": {
-                  "l2": 0.0001
-                }
-              },
+              "kernel_regularizer": null,
               "bias_regularizer": null,
               "activity_regularizer": null,
               "kernel_constraint": null,
@@ -956,7 +972,10 @@
               "gamma_regularizer": null,
               "beta_constraint": null,
               "gamma_constraint": null,
-              "synchronized": false
+              "synchronized": false,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "batch_normalization_6",
             "inbound_nodes": [
@@ -976,7 +995,10 @@
               "name": "activation_6",
               "trainable": true,
               "dtype": "float32",
-              "activation": "relu"
+              "activation": "relu",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "activation_6",
             "inbound_nodes": [
@@ -1024,12 +1046,7 @@
                 "class_name": "Zeros",
                 "config": {}
               },
-              "kernel_regularizer": {
-                "class_name": "L2",
-                "config": {
-                  "l2": 0.0001
-                }
-              },
+              "kernel_regularizer": null,
               "bias_regularizer": null,
               "activity_regularizer": null,
               "kernel_constraint": null,
@@ -1078,7 +1095,10 @@
               "gamma_regularizer": null,
               "beta_constraint": null,
               "gamma_constraint": null,
-              "synchronized": false
+              "synchronized": false,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "batch_normalization_7",
             "inbound_nodes": [
@@ -1098,7 +1118,10 @@
               "name": "activation_7",
               "trainable": true,
               "dtype": "float32",
-              "activation": "relu"
+              "activation": "relu",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "activation_7",
             "inbound_nodes": [
@@ -1127,7 +1150,10 @@
                 2,
                 2
               ],
-              "data_format": "channels_last"
+              "data_format": "channels_last",
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "max_pooling2d_3",
             "inbound_nodes": [
@@ -1148,7 +1174,10 @@
               "trainable": true,
               "dtype": "float32",
               "data_format": "channels_last",
-              "keepdims": false
+              "keepdims": false,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "global_average_pooling2d",
             "inbound_nodes": [
@@ -1181,15 +1210,11 @@
                 "class_name": "Zeros",
                 "config": {}
               },
-              "kernel_regularizer": {
-                "class_name": "L2",
-                "config": {
-                  "l2": 0.0001
-                }
-              },
+              "kernel_regularizer": null,
               "bias_regularizer": null,
               "kernel_constraint": null,
-              "bias_constraint": null
+              "bias_constraint": null,
+              "activity_regularizer": null
             },
             "name": "dense",
             "inbound_nodes": [
@@ -1211,7 +1236,10 @@
               "dtype": "float32",
               "rate": 0.4,
               "seed": null,
-              "noise_shape": null
+              "noise_shape": null,
+              "kernel_regularizer": null,
+              "bias_regularizer": null,
+              "activity_regularizer": null
             },
             "name": "dropout",
             "inbound_nodes": [
@@ -1247,7 +1275,8 @@
               "kernel_regularizer": null,
               "bias_regularizer": null,
               "kernel_constraint": null,
-              "bias_constraint": null
+              "bias_constraint": null,
+              "activity_regularizer": null
             },
             "name": "kelas",
             "inbound_nodes": [
@@ -1263,14 +1292,18 @@
           }
         ],
         "input_layers": [
-          "rupiah_image",
-          0,
-          0
+          [
+            "rupiah_image",
+            0,
+            0
+          ]
         ],
         "output_layers": [
-          "kelas",
-          0,
-          0
+          [
+            "kelas",
+            0,
+            0
+          ]
         ]
       }
     }

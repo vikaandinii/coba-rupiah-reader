@@ -357,7 +357,7 @@
         app.backendName = "CPU";
       }
 
-      console.log(`[MLOps] TF.js Backend aktif: ${tf.getBackend()}`);
+      console.log(`[Rupiah AI] TF.js Backend aktif: ${tf.getBackend()}`);
 
       // Lokasi Model Artifacts
       const modelLocations = [
@@ -369,11 +369,11 @@
       let loaded = null;
       for (const loc of modelLocations) {
         try {
-          console.log(`[MLOps] Mencoba memuat model dari: ${loc}`);
+          console.log(`[Rupiah AI] Memuat model dari: ${loc}`);
           loaded = await tf.loadLayersModel(loc);
           if (loaded) break;
         } catch (err) {
-          console.warn(`[MLOps] Gagal memuat dari ${loc}:`, err);
+          console.warn(`[Rupiah AI] Gagal memuat dari ${loc}:`, err);
         }
       }
 
@@ -390,18 +390,14 @@
         app.tfModel.predict(dummy);
       });
 
-      console.log("[MLOps] Custom CNN (99.4%) siap untuk inferensi real-time!");
-      if (el.chipText) el.chipText.textContent = `Custom CNN Ready (${app.backendName})`;
-      if (el.sheetGpuVal) el.sheetGpuVal.textContent = `GPU WebGL Aktif (Custom CNN 99.4%)`;
-      if (el.diagBackend) el.diagBackend.textContent = app.backendName;
-      if (el.diagModel) el.diagModel.textContent = "MobileNetV2 v2.1.0";
+      console.log("[Rupiah AI] Custom CNN (99.4%) siap untuk inferensi real-time!");
+      if (el.chipText) el.chipText.textContent = "Custom CNN Ready";
 
       // Jalankan loop pemindaian kontinu begitu model dan kamera siap
       startContinuousScanLoop();
     } catch (err) {
-      console.error("[MLOps Error] Gagal inisialisasi model TF.js:", err);
+      console.error("[Rupiah AI Error] Gagal inisialisasi model:", err);
       if (el.chipText) el.chipText.textContent = "AI Fallback Active";
-      if (el.sheetGpuVal) el.sheetGpuVal.textContent = "Fallback Engine";
     }
   }
 
