@@ -4,8 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
-from api.schemas import PredictionResponse, HealthResponse, CoinSessionResponse
-from api import predictor
+try:
+    from backend.schemas import PredictionResponse, HealthResponse, CoinSessionResponse
+    from backend import predictor
+except ImportError:
+    from schemas import PredictionResponse, HealthResponse, CoinSessionResponse
+    import predictor
 
 model_store = {"model": None, "coin_model": None}
 coin_sessions = {}
