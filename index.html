@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=9.2">
+  <link rel="stylesheet" href="style.css?v=12.0">
 </head>
 <body class="theme-modern">
   <a class="skip-link" href="#tap-fullscreen">Lewati ke area pemindai</a>
@@ -134,28 +134,6 @@
         </svg>
       </button>
     </div>
-
-    <!-- Visual Debug HUD (Aktif jika URL memiliki ?debug=1) -->
-    <aside id="debug-hud" class="debug-hud" hidden aria-hidden="true">
-      <div class="debug-header">
-        <span class="debug-tag">LIVE MLOPS DEBUG</span>
-        <span id="debug-fps">0 FPS</span>
-      </div>
-      <div class="debug-pip-container">
-        <canvas id="debug-tensor-preview" width="224" height="224"></canvas>
-        <div class="debug-pip-label">Input Model (224×224 Pad)</div>
-      </div>
-      <div class="debug-metrics">
-        <div class="dbg-row"><span>Status:</span> <span id="debug-status">-</span></div>
-        <div class="dbg-row"><span>Crop:</span> <span id="debug-source">-</span></div>
-        <div class="dbg-row"><span>BBox:</span> <span id="debug-bbox">-</span></div>
-        <div class="dbg-row"><span>Kualitas:</span> <span id="debug-quality">OK</span></div>
-        <div class="dbg-row"><span>Buffer (6):</span> <span id="debug-window">-</span></div>
-        <div class="dbg-row"><span>Winner:</span> <span id="debug-winner">-</span></div>
-        <div class="dbg-row"><span>Avg Conf:</span> <span id="debug-conf">-</span></div>
-        <div class="dbg-row"><span>Margin:</span> <span id="debug-margin">-</span></div>
-      </div>
-    </aside>
   </div>
 
   <!-- Screen reader live region -->
@@ -163,6 +141,6 @@
 
   <!-- TensorFlow.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-  <script src="script.js?v=11.0"></script>
+  <script src="script.js?v=12.0"></script>
 </body>
 </html>

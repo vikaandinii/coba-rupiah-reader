@@ -144,21 +144,18 @@ body.cam-user #camera-preview {
 }
 
 /* --------------------------------------------------------------------------
-   Viewfinder Landscape (Sesuai Rasio Uang Kertas Rupiah ~2.1:1)
+   Area Pemindai Layar Penuh (Memenuhi 100% Seluruh Layar Bebas Orientasi)
    -------------------------------------------------------------------------- */
 .viewfinder {
   position: absolute;
-  top: 48%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(88vw, 400px);
-  max-width: calc(100vw - 32px);
-  aspect-ratio: 2.1 / 1;
-  height: auto;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  border: none !important;
   pointer-events: none;
 }
 
-/* 4 Sudut Rounded Putih Tebal (Dihapus untuk Tunanetra: Bebas Sudut & Posisi) */
+/* 4 Sudut Dihapus Total: Seluruh Layar adalah Area Pemindai */
 .vf-corner {
   display: none !important;
 }
@@ -934,9 +931,9 @@ body.show-success .success-badge {
    -------------------------------------------------------------------------- */
 @media (min-width: 768px) {
   .viewfinder {
-    width: 480px;
-    aspect-ratio: 2.1 / 1;
-    height: auto;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
   }
   .bottom-pill-card {
     max-width: 480px;
