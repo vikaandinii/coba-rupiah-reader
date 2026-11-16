@@ -32,7 +32,7 @@
 
   // Ambang Batas Keyakinan Terkalibrasi: Seimbang & responsif untuk kondisi kamera HP
   const THRESHOLDS = {
-    CONFIRMED: 0.55,             // >= 55% dengan margin jelas langsung dikonfirmasi
+    CONFIRMED: 0.60,             // >= 60% dengan margin jelas langsung dikonfirmasi
     MARGIN: 0.10,                // 10% margin di atas peringkat kedua
     UNCERTAIN: 0.35,             // 35%-54% dianggap kurang jelas
     UNKNOWN: 0.20,               // Di bawah 20% dianggap tidak ada uang
