@@ -294,6 +294,51 @@
     } catch (_) {}
   }
 
+  // -------------------------------------------------------------------------
+  // Pemutar Audio Suara MP3 Neural Bahasa Indonesia (100% Anti-Blokir Mobile)
+  // -------------------------------------------------------------------------
+  const voicePlayer = new Audio();
+  voicePlayer.preload = "auto";
+  const audioBlobCache = new Map();
+  const AUDIO_CLIPS = [
+    "1000", "2000", "5000", "10000", "20000", "50000", "100000",
+    "scan", "unclear", "not_found", "guide"
+  ];
+
+  async function preloadAudioClips() {
+    for (const key of AUDIO_CLIPS) {
+      try {
+        const res = await fetch(`./audio/${key}.mp3`);
+        if (res.ok) {
+          const blob = await res.blob();
+          audioBlobCache.set(key, URL.createObjectURL(blob));
+        }
+      } catch (_) {}
+    }
+  }
+  preloadAudioClips();
+
+  function playAudioClip(key, fallbackText = "") {
+    if (fallbackText) announce(fallbackText);
+    try {
+      const src = audioBlobCache.get(key) || `./audio/${key}.mp3`;
+      voicePlayer.pause();
+      voicePlayer.currentTime = 0;
+      voicePlayer.src = src;
+      voicePlayer.volume = 1.0;
+      const p = voicePlayer.play();
+      if (p && typeof p.catch === "function") {
+        p.catch(() => {
+          if (fallbackText) speak(fallbackText, true);
+        });
+      }
+      return true;
+    } catch (_) {
+      if (fallbackText) speak(fallbackText, true);
+      return false;
+    }
+  }
+
   function speakSync(teks) {
     if (!ttsAda) return;
     try {
@@ -1144,10 +1189,10 @@
   function speakBlindGuide() {
     playScanTick();
     getar([40, 40, 40]);
-    speak(
+    playAudioClip(
+      "guide",
       "Panduan Rupiah Reader. Arahkan kamera ke uang kertas, lalu ketuk layar di mana saja satu kali untuk memindai. " +
-      "Tunggu bunyi bel dan suara nominalnya. Untuk mengganti uang, cukup arahkan ke uang baru lalu ketuk layar lagi.",
-      true
+      "Tunggu bunyi bel dan suara nominalnya. Untuk mengganti uang, arahkan ke uang baru lalu ketuk layar lagi."
     );
   }
 
@@ -1162,11 +1207,11 @@
       app.votingBuffer = [];
       app.unconfirmedFramesCount = 0;
 
-      // 2. Putar bunyi tick & ucapkan "Memindai" SECARA SINKRON di dalam event tap
-      //    (Wajib sinkron sebelum 'await' agar browser HP tidak memblokir suara!)
+      // 2. Putar bunyi tick & MP3 "Memindai" SECARA SINKRON di dalam event tap
+      //    (Mempermanenkan izin audio HTML5 <audio> di Chrome Android & iOS Safari!)
       playScanTick();
       getar(35);
-      speakSync("Memindai");
+      playAudioClip("scan", "Memindai");
 
       el.bottomCard.className = "bottom-pill-card state-scanning";
       el.pillSubtitle.textContent = "Memindai...";
@@ -1223,7 +1268,7 @@
                   getar([80, 40, 80]);
                   showSuccessBloom();
                   playSuccessChime();
-                  speak(nominalToSpeech(nomInt));
+                  playAudioClip(String(nomInt), nominalToSpeech(nomInt));
                   updateResultUI(found);
                   return;
                 }
@@ -1253,20 +1298,20 @@
         getar([80, 40, 80]);
         showSuccessBloom();
         playSuccessChime();
-        speak(nominalToSpeech(selected.nominal));
+        playAudioClip(String(selected.nominal), nominalToSpeech(selected.nominal));
         updateResultUI(selected);
       } else if (bestPred && bestPred.top.prob >= THRESHOLDS.UNCERTAIN) {
         el.bottomCard.className = "bottom-pill-card state-idle";
         el.pillSubtitle.textContent = "Kurang Jelas";
         el.pillTitle.textContent = "Pegang Stabil lalu Ketuk Lagi";
         getar([60, 40, 60]);
-        speak("Uang belum terbaca jelas. Dekatkan sedikit lalu ketuk layar lagi.");
+        playAudioClip("unclear", "Uang kurang jelas. Dekatkan sedikit lalu ketuk layar lagi.");
       } else {
         el.bottomCard.className = "bottom-pill-card state-idle";
         el.pillSubtitle.textContent = "Tidak Terdeteksi";
         el.pillTitle.textContent = "Arahkan Uang lalu Ketuk Layar";
         getar([100, 50, 100]);
-        speak("Uang belum terdeteksi. Arahkan ke uang lalu ketuk layar.");
+        playAudioClip("not_found", "Uang belum terdeteksi. Arahkan ke uang lalu ketuk layar.");
       }
     } finally {
       app.isScanning = false;
