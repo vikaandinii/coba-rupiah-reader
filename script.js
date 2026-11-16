@@ -259,51 +259,74 @@
     speechSynthesis.addEventListener("voiceschanged", pilihVoice);
   }
 
-  // Buka blokir audio browser HP pada interaksi pertama apapun
+  // Buka blokir Web Audio API pada sentuhan pertama (tanpa spam dummy speechSynthesis!)
   function unlockAudioPipeline() {
     const ctx = getAudioCtx();
     if (ctx && ctx.state === "suspended") {
       ctx.resume().catch(() => {});
     }
     if (ttsAda) {
-      window.speechSynthesis.resume();
       try {
-        const dummy = new SpeechSynthesisUtterance(" ");
-        dummy.volume = 0.01;
-        window.speechSynthesis.speak(dummy);
+        pilihVoice();
+        window.speechSynthesis.resume();
       } catch (_) {}
     }
   }
-  window.addEventListener("touchstart", unlockAudioPipeline, { passive: true });
-  window.addEventListener("touchend", unlockAudioPipeline, { passive: true });
-  window.addEventListener("pointerdown", unlockAudioPipeline, { passive: true });
-  window.addEventListener("click", unlockAudioPipeline, { passive: true });
+  window.addEventListener("touchstart", unlockAudioPipeline, { passive: true, once: true });
+  window.addEventListener("click", unlockAudioPipeline, { passive: true, once: true });
 
+  function playScanTick() {
+    try {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(660, now);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.055);
+    } catch (_) {}
+  }
+
+  let speakTimer = null;
   function speak(teks) {
     announce(teks);
     if (!ttsAda) return;
     try {
-      window.speechSynthesis.resume();
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
+      if (speakTimer) {
+        clearTimeout(speakTimer);
+        speakTimer = null;
       }
-      const u = new SpeechSynthesisUtterance(teks);
-      u.lang = "id-ID";
-      u.rate = 1.0;
-      u.pitch = 1.0;
-      u.volume = 1.0;
-      if (app.voice) u.voice = app.voice;
-      u.onerror = (e) => {
-        console.warn("[TTS Fallback]", e);
-        if (u.lang === "id-ID") {
-          try {
-            const fallbackU = new SpeechSynthesisUtterance(teks);
-            fallbackU.rate = 1.0;
-            window.speechSynthesis.speak(fallbackU);
-          } catch (_) {}
-        }
+      pilihVoice();
+      window.speechSynthesis.resume();
+
+      const doSpeak = () => {
+        const u = new SpeechSynthesisUtterance(teks);
+        u.lang = "id-ID";
+        u.rate = 1.0;
+        u.pitch = 1.0;
+        u.volume = 1.0;
+        if (app.voice) u.voice = app.voice;
+        // Simpan referensi di window agar tidak di-garbage-collect oleh Chrome Mobile sebelum selesai bicara
+        window.__activeUtterance = u;
+        u.onend = () => { window.__activeUtterance = null; };
+        u.onerror = () => { window.__activeUtterance = null; };
+        window.speechSynthesis.speak(u);
       };
-      window.speechSynthesis.speak(u);
+
+      // Hindari bug Android Chrome: cancel() lalu speak() langsung akan membatalkan suara baru
+      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+        window.speechSynthesis.cancel();
+        speakTimer = setTimeout(doSpeak, 65);
+      } else {
+        doSpeak();
+      }
     } catch (e) {
       console.warn("[TTS Exception]", e);
     }
@@ -411,11 +434,10 @@
         app.tfModel.predict(dummy);
       });
 
-      console.log("[Rupiah AI] Model siap untuk inferensi real-time!");
+      console.log("[Rupiah AI] Model siap! Mode Ketuk Layar aktif (hemat baterai & anti-lag).");
       if (el.chipText) el.chipText.textContent = "AI Ready";
-
-      // Jalankan loop pemindaian kontinu begitu model dan kamera siap
-      startContinuousScanLoop();
+      if (el.pillSubtitle) el.pillSubtitle.textContent = "Siap Memindai";
+      if (el.pillTitle) el.pillTitle.textContent = "Ketuk Layar untuk Pindai";
     } catch (err) {
       console.error("[Rupiah AI Error] Gagal inisialisasi model:", err);
       if (el.chipText) el.chipText.textContent = "AI Fallback Active";
@@ -1076,113 +1098,112 @@
   }
 
   // -------------------------------------------------------------------------
-  // Interaksi Manual: Ketuk Layar (Single Tap = Re-Scan & Force Speak)
+  // Interaksi Manual: Ketuk Layar (Hanya Menganalisis Saat Layar Ditekan)
   // -------------------------------------------------------------------------
   async function forceScanAndSpeak() {
-    getar(35);
-    app.lastSpokenNominal = null; // Reset kunci pengucapan agar membaca ulang
-    app.unconfirmedFramesCount = 0;
+    if (app.isScanning) return;
+    app.isScanning = true;
 
-    el.bottomCard.className = "bottom-pill-card state-scanning";
-    el.pillSubtitle.textContent = "Scanning...";
-    el.pillTitle.textContent = "Menganalisis uang...";
-
-    if (!app.tfModel) {
-      speak("Memuat model kecerdasan buatan, mohon tunggu sebentar.");
-      return;
-    }
-
-    // Prioritas 1: Inferensi via Backend FastAPI (/predict) jika running di localhost
     try {
-      const isLocalBackend = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      if (el.video && el.video.videoWidth && isLocalBackend) {
-        // Un-mirror jika kamera depan laptop agar angka & pahlawan tidak terbalik seperti cermin
-        const isFrontCam = document.body.classList.contains("cam-user") || (app.currentFacingMode === "user");
-        const vfCoords = getViewfinderCropCoords(el.video);
-        const { canvas: cropCanvas } = extractTensorAndCanvas(
-          el.video,
-          vfCoords.sx,
-          vfCoords.sy,
-          vfCoords.sw,
-          vfCoords.sh,
-          isFrontCam
-        );
+      playScanTick();
+      getar(35);
+      app.lastSpokenNominal = null;
+      app.unconfirmedFramesCount = 0;
 
-        const blob = await new Promise((r) => cropCanvas.toBlob(r, "image/jpeg", 0.95));
-        if (blob) {
-          const fd = new FormData();
-          fd.append("file", blob, "scan.jpg");
-          const apiRes = await fetch("/predict", { method: "POST", body: fd });
-          if (apiRes.ok) {
-            const data = await apiRes.json();
-            console.log("[FastAPI Predict]", data);
-            if (data.success && data.nominal) {
-              const nomInt = parseInt(data.nominal);
-              const found = BANKNOTE_CLASSES.find((c) => c.nominal === nomInt);
-              if (found) {
-                app.lastSpokenNominal = nomInt;
-                app.lastResult = {
-                  ...found,
-                  type: "banknote",
-                  confidence: data.confidence,
-                  displayText: data.label || formatRupiah(nomInt),
-                  speechText: nominalToSpeech(nomInt),
-                };
-                getar([80, 40, 80]);
-                showSuccessBloom();
-                speak(nominalToSpeech(nomInt));
-                updateResultUI(found);
-                return;
+      el.bottomCard.className = "bottom-pill-card state-scanning";
+      el.pillSubtitle.textContent = "Memindai...";
+      el.pillTitle.textContent = "Menganalisis uang...";
+
+      if (!app.tfModel) {
+        speak("Model belum siap, mohon tunggu sebentar.");
+        return;
+      }
+
+      // Prioritas 1: Inferensi via Backend FastAPI (/predict) jika running di localhost
+      try {
+        const isLocalBackend = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+        if (el.video && el.video.videoWidth && isLocalBackend) {
+          const isFrontCam = document.body.classList.contains("cam-user") || (app.currentFacingMode === "user");
+          const vfCoords = getViewfinderCropCoords(el.video);
+          const { canvas: cropCanvas } = extractTensorAndCanvas(
+            el.video,
+            vfCoords.sx,
+            vfCoords.sy,
+            vfCoords.sw,
+            vfCoords.sh,
+            isFrontCam
+          );
+
+          const blob = await new Promise((r) => cropCanvas.toBlob(r, "image/jpeg", 0.95));
+          if (blob) {
+            const fd = new FormData();
+            fd.append("file", blob, "scan.jpg");
+            const apiRes = await fetch("/predict", { method: "POST", body: fd });
+            if (apiRes.ok) {
+              const data = await apiRes.json();
+              console.log("[FastAPI Predict]", data);
+              if (data.success && data.nominal) {
+                const nomInt = parseInt(data.nominal);
+                const found = BANKNOTE_CLASSES.find((c) => c.nominal === nomInt);
+                if (found) {
+                  app.lastSpokenNominal = nomInt;
+                  app.lastResult = {
+                    ...found,
+                    type: "banknote",
+                    confidence: data.confidence,
+                    displayText: data.label || formatRupiah(nomInt),
+                    speechText: nominalToSpeech(nomInt),
+                  };
+                  getar([80, 40, 80]);
+                  showSuccessBloom();
+                  playSuccessChime();
+                  speak(nominalToSpeech(nomInt));
+                  updateResultUI(found);
+                  return;
+                }
               }
             }
           }
         }
+      } catch (apiErr) {
+        console.log("FastAPI backend offline, melanjutkan dengan TF.js client-side:", apiErr);
       }
-    } catch (apiErr) {
-      console.log("FastAPI backend offline, melanjutkan dengan TF.js client-side:", apiErr);
-    }
 
-    // Prioritas 2 (Fallback): Inferensi instan multi-crop TensorFlow.js di browser
-    let bestPred = null;
-    let highestConf = -1;
-
-    for (let i = 0; i < 3; i++) {
+      // Prioritas 2: Inferensi instan TensorFlow.js di browser (1x batch pass cepat, tanpa lag)
       const res = await predictBanknoteFrame(el.video);
-      if (res && res.chosen && res.chosen.top.prob > highestConf) {
-        highestConf = res.chosen.top.prob;
-        bestPred = res.chosen;
+      const bestPred = res ? res.chosen : null;
+
+      if (bestPred && bestPred.top.prob >= 0.55 && bestPred.margin >= 0.12) {
+        const selected = bestPred.top;
+        app.lastSpokenNominal = selected.nominal;
+        app.lastResult = {
+          ...selected,
+          type: "banknote",
+          confidence: bestPred.top.prob,
+          displayText: formatRupiah(selected.nominal),
+          speechText: nominalToSpeech(selected.nominal)
+        };
+
+        getar([80, 40, 80]);
+        showSuccessBloom();
+        playSuccessChime();
+        speak(nominalToSpeech(selected.nominal));
+        updateResultUI(selected);
+      } else if (bestPred && bestPred.top.prob >= 0.35) {
+        el.bottomCard.className = "bottom-pill-card state-idle";
+        el.pillSubtitle.textContent = "Kurang Jelas";
+        el.pillTitle.textContent = "Pegang Stabil lalu Ketuk Lagi";
+        getar([60, 40, 60]);
+        speak("Uang kurang jelas. Dekatkan sedikit lalu ketuk layar lagi.");
+      } else {
+        el.bottomCard.className = "bottom-pill-card state-idle";
+        el.pillSubtitle.textContent = "Tidak Terdeteksi";
+        el.pillTitle.textContent = "Arahkan Uang lalu Ketuk Layar";
+        getar([100, 50, 100]);
+        speak("Uang belum terdeteksi. Arahkan ke uang lalu ketuk layar.");
       }
-      await sleep(60);
-    }
-
-    if (bestPred && bestPred.top.prob >= THRESHOLDS.CONFIRMED && bestPred.margin >= THRESHOLDS.MARGIN) {
-      const selected = bestPred.top;
-      app.lastSpokenNominal = selected.nominal;
-      app.lastResult = {
-        ...selected,
-        type: "banknote",
-        confidence: bestPred.top.prob,
-        displayText: formatRupiah(selected.nominal),
-        speechText: nominalToSpeech(selected.nominal)
-      };
-
-      getar([80, 40, 80]);
-      showSuccessBloom();
-      playSuccessChime();
-      speak(nominalToSpeech(selected.nominal));
-      updateResultUI(selected);
-    } else if (bestPred && bestPred.top.prob >= THRESHOLDS.UNCERTAIN) {
-      el.bottomCard.className = "bottom-pill-card state-idle";
-      el.pillSubtitle.textContent = "Kurang Jelas";
-      el.pillTitle.textContent = "Gerakkan Sedikit Uang";
-      getar([60, 40, 60]);
-      speak("Uang belum terbaca jelas. Gerakkan sedikit uang di depan kamera.");
-    } else {
-      el.bottomCard.className = "bottom-pill-card state-idle";
-      el.pillSubtitle.textContent = "Siap Memindai";
-      el.pillTitle.textContent = "Arahkan Uang ke Kamera";
-      getar([100, 50, 100]);
-      speak("Uang belum terdeteksi. Dekatkan uang ke kamera.");
+    } finally {
+      app.isScanning = false;
     }
   }
 
