@@ -359,7 +359,7 @@
 
       console.log(`[Rupiah AI] TF.js Backend aktif: ${tf.getBackend()}`);
 
-      const IDB_KEY = "indexeddb://rupiah-mobilenetv2-v14";
+      const IDB_KEY = "indexeddb://rupiah-customcnn-v15";
       let loaded = null;
 
       // 1. Cek cache IndexedDB agar loading instan (< 0.5 detik) pada kunjungan berikutnya
