@@ -294,8 +294,24 @@
     } catch (_) {}
   }
 
+  function speakSync(teks) {
+    if (!ttsAda) return;
+    try {
+      pilihVoice();
+      window.speechSynthesis.resume();
+      const u = new SpeechSynthesisUtterance(teks);
+      u.lang = "id-ID";
+      u.rate = 1.05;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      if (app.voice) u.voice = app.voice;
+      window.__activeUtterance = u;
+      window.speechSynthesis.speak(u);
+    } catch (_) {}
+  }
+
   let speakTimer = null;
-  function speak(teks) {
+  function speak(teks, replaceQueue = false) {
     announce(teks);
     if (!ttsAda) return;
     try {
@@ -316,12 +332,22 @@
         // Simpan referensi di window agar tidak di-garbage-collect oleh Chrome Mobile sebelum selesai bicara
         window.__activeUtterance = u;
         u.onend = () => { window.__activeUtterance = null; };
-        u.onerror = () => { window.__activeUtterance = null; };
+        u.onerror = () => {
+          window.__activeUtterance = null;
+          // Fallback jika voice id-ID tidak tersedia di perangkat
+          try {
+            const fb = new SpeechSynthesisUtterance(teks);
+            fb.rate = 1.0;
+            window.__activeUtterance = fb;
+            window.speechSynthesis.speak(fb);
+          } catch (_) {}
+        };
         window.speechSynthesis.speak(u);
       };
 
-      // Hindari bug Android Chrome: cancel() lalu speak() langsung akan membatalkan suara baru
-      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      // Jika replaceQueue=false, biarkan antrean setelah "Memindai" berjalan alami tanpa cancel()
+      // agar browser HP (Android/iOS) tidak memblokir atau membatalkan suara hasil deteksi!
+      if (replaceQueue && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
         window.speechSynthesis.cancel();
         speakTimer = setTimeout(doSpeak, 65);
       } else {
@@ -742,24 +768,12 @@
     const t0 = performance.now();
     const isFrontCam = document.body.classList.contains("cam-user") || (app.currentFacingMode === "user");
 
-    const loc = locateBanknoteCandidate(videoEl);
-
-    // Susun 3-4 crop cerdas (cepat & hemat GPU) yang mencakup segala sudut & jarak:
+    // Gunakan 2 crop paling efektif (center + full) dalam 1 batch GPU agar super cepat & anti-lag di HP
     const cropList = [
-      // 1. Natural Center (Area tengah)
-      { id: "center", sx: Math.round(vw * 0.10), sy: Math.round(vh * 0.16), sw: Math.round(vw * 0.80), sh: Math.round(vh * 0.68) },
-      // 2. Center Vertical (Jika uang dipegang tegak/portrait)
-      { id: "vertical", sx: Math.round(vw * 0.16), sy: Math.round(vh * 0.10), sw: Math.round(vw * 0.68), sh: Math.round(vh * 0.80) },
-      // 3. Full Frame (Jika uang agak jauh)
+      { id: "center", sx: Math.round(vw * 0.08), sy: Math.round(vh * 0.12), sw: Math.round(vw * 0.84), sh: Math.round(vh * 0.76) },
       { id: "full", sx: 0, sy: 0, sw: vw, sh: vh }
     ];
 
-    // 4. Area lokalisasi otomatis (jika terdeteksi kandidat uang yang jelas)
-    if (loc.coverageRatio >= 0.04 && loc.coverageRatio <= 0.65 && loc.status === "OK") {
-      cropList.push({ id: "loc", sx: loc.sx, sy: loc.sy, sw: loc.sw, sh: loc.sh });
-    }
-
-    // 3. Gabungkan semua crop menjadi 1 batch tensor untuk single-pass GPU inference (3-4x lebih cepat!)
     const cropTensors = [];
     let lastCanvas = null;
     for (const crop of cropList) {
@@ -776,8 +790,13 @@
 
     try {
       const pred = app.tfModel.predict(batchTensor);
-      batchProbs = await pred.array();
+      const flat = await pred.data();
       pred.dispose();
+      const numClasses = BANKNOTE_CLASSES.length;
+      batchProbs = [];
+      for (let i = 0; i < cropList.length; i++) {
+        batchProbs.push(Array.from(flat.slice(i * numClasses, (i + 1) * numClasses)));
+      }
     } finally {
       batchTensor.dispose();
     }
@@ -816,7 +835,7 @@
     app.lastLatencyMs = latency;
 
     return {
-      loc,
+      loc: null,
       chosen: bestResult,
       latency
     };
@@ -1100,22 +1119,69 @@
   // -------------------------------------------------------------------------
   // Interaksi Manual: Ketuk Layar (Hanya Menganalisis Saat Layar Ditekan)
   // -------------------------------------------------------------------------
+  let snapshotCanvas = null;
+  let snapshotCtx = null;
+
+  function captureFreshVideoSnapshot(videoEl) {
+    const vw = videoEl.videoWidth;
+    const vh = videoEl.videoHeight;
+    if (!vw || !vh) return null;
+    if (!snapshotCanvas) {
+      snapshotCanvas = document.createElement("canvas");
+      snapshotCtx = snapshotCanvas.getContext("2d", { willReadFrequently: false });
+    }
+    if (snapshotCanvas.width !== vw || snapshotCanvas.height !== vh) {
+      snapshotCanvas.width = vw;
+      snapshotCanvas.height = vh;
+    }
+    snapshotCtx.drawImage(videoEl, 0, 0, vw, vh);
+    // Berikan properti videoWidth/videoHeight agar kompatibel dengan extractTensorAndCanvas
+    snapshotCanvas.videoWidth = vw;
+    snapshotCanvas.videoHeight = vh;
+    return snapshotCanvas;
+  }
+
+  function speakBlindGuide() {
+    playScanTick();
+    getar([40, 40, 40]);
+    speak(
+      "Panduan Rupiah Reader. Arahkan kamera ke uang kertas, lalu ketuk layar di mana saja satu kali untuk memindai. " +
+      "Tunggu bunyi bel dan suara nominalnya. Untuk mengganti uang, cukup arahkan ke uang baru lalu ketuk layar lagi.",
+      true
+    );
+  }
+
   async function forceScanAndSpeak() {
     if (app.isScanning) return;
     app.isScanning = true;
 
     try {
+      // 1. Segera hapus hasil analisis lama agar tidak terbawa ke uang baru
+      app.lastResult = null;
+      app.lastSpokenNominal = null;
+      app.votingBuffer = [];
+      app.unconfirmedFramesCount = 0;
+
+      // 2. Putar bunyi tick & ucapkan "Memindai" SECARA SINKRON di dalam event tap
+      //    (Wajib sinkron sebelum 'await' agar browser HP tidak memblokir suara!)
       playScanTick();
       getar(35);
-      app.lastSpokenNominal = null;
-      app.unconfirmedFramesCount = 0;
+      speakSync("Memindai");
 
       el.bottomCard.className = "bottom-pill-card state-scanning";
       el.pillSubtitle.textContent = "Memindai...";
       el.pillTitle.textContent = "Menganalisis uang...";
+      if (el.thumbNumber) el.thumbNumber.textContent = "-";
 
       if (!app.tfModel) {
-        speak("Model belum siap, mohon tunggu sebentar.");
+        speak("Model kecerdasan buatan masih dimuat, mohon tunggu sebentar.");
+        return;
+      }
+
+      // 3. Ambil snapshot segar tepat saat layar diketuk (anti frame lama)
+      const freshFrame = captureFreshVideoSnapshot(el.video);
+      if (!freshFrame) {
+        speak("Kamera belum siap, coba ketuk lagi.");
         return;
       }
 
@@ -1170,7 +1236,7 @@
       }
 
       // Prioritas 2: Inferensi instan TensorFlow.js di browser (1x batch pass cepat, tanpa lag)
-      const res = await predictBanknoteFrame(el.video);
+      const res = await predictBanknoteFrame(freshFrame);
       const bestPred = res ? res.chosen : null;
 
       if (bestPred && bestPred.top.prob >= THRESHOLDS.CONFIRMED && bestPred.margin >= THRESHOLDS.MARGIN) {
@@ -1395,29 +1461,10 @@
   }
 
   // -------------------------------------------------------------------------
-  // Dispatcher Ketuk Layar (Single Tap = Re-Scan, Double Tap = Add to Total)
+  // Dispatcher Ketuk Layar (Langsung Pindai Sinkron Tanpa Delay 240ms)
   // -------------------------------------------------------------------------
   function handleScreenTap() {
-    const now = performance.now();
-    const selisih = now - app.lastTapTime;
-
-    if (selisih < 320) {
-      // DOUBLE TAP DETECTED
-      if (app.tapTimer) {
-        clearTimeout(app.tapTimer);
-        app.tapTimer = null;
-      }
-      app.lastTapTime = 0;
-      addToTotal();
-    } else {
-      // SINGLE TAP (Dijadwalkan untuk membedakan dari double tap)
-      app.lastTapTime = now;
-      if (app.tapTimer) clearTimeout(app.tapTimer);
-      app.tapTimer = setTimeout(() => {
-        app.tapTimer = null;
-        forceScanAndSpeak();
-      }, 240);
-    }
+    forceScanAndSpeak();
   }
 
   // -------------------------------------------------------------------------
@@ -1441,9 +1488,34 @@
   // -------------------------------------------------------------------------
   function attachEventListeners() {
     if (el.tapArea) {
+      let pressTimer = null;
+      let longPressed = false;
+      el.tapArea.addEventListener("touchstart", () => {
+        longPressed = false;
+        pressTimer = setTimeout(() => {
+          longPressed = true;
+          speakBlindGuide();
+        }, 700);
+      }, { passive: true });
+      el.tapArea.addEventListener("touchend", () => {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      }, { passive: true });
+      el.tapArea.addEventListener("touchmove", () => {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      }, { passive: true });
+
       el.tapArea.addEventListener("click", (e) => {
+        if (longPressed) { longPressed = false; return; }
         if (e.target.closest(".nav-circle-btn, .floating-zoom-btn, .pill-torch-btn, .menu-bottom-sheet")) return;
         handleScreenTap();
+      });
+    }
+
+    const btnGuide = $("btn-guide");
+    if (btnGuide) {
+      btnGuide.addEventListener("click", (e) => {
+        e.stopPropagation();
+        speakBlindGuide();
       });
     }
 
