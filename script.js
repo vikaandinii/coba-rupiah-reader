@@ -30,12 +30,12 @@
   ];
   window.BANKNOTE_CLASSES = BANKNOTE_CLASSES;
 
-  // Ambang Batas Keyakinan Terkalibrasi: Minimal 90% baru menebak nominal
+  // Ambang Batas Keyakinan Terkalibrasi: Seimbang & responsif untuk kondisi kamera HP
   const THRESHOLDS = {
-    CONFIRMED: 0.90,             // Wajib >= 90% baru berani menebak nominal
-    MARGIN: 0.12,                // 12% margin di atas peringkat kedua
-    UNCERTAIN: 0.50,             // 50%-89% dianggap kurang jelas (minta pindai ulang)
-    UNKNOWN: 0.25,               // Di bawah 25% dianggap tidak ada uang
+    CONFIRMED: 0.55,             // >= 55% dengan margin jelas langsung dikonfirmasi
+    MARGIN: 0.10,                // 10% margin di atas peringkat kedua
+    UNCERTAIN: 0.35,             // 35%-54% dianggap kurang jelas
+    UNKNOWN: 0.20,               // Di bawah 20% dianggap tidak ada uang
     WINDOW_SIZE: 4,
     MIN_VOTES: 2,
     TARGET_FRAME_INTERVAL_MS: 130,
@@ -1257,7 +1257,7 @@
         updateResultUI(selected);
       } else if (bestPred && bestPred.top.prob >= THRESHOLDS.UNCERTAIN) {
         el.bottomCard.className = "bottom-pill-card state-idle";
-        el.pillSubtitle.textContent = "Belum Yakin (< 90%)";
+        el.pillSubtitle.textContent = "Kurang Jelas";
         el.pillTitle.textContent = "Pegang Stabil lalu Ketuk Lagi";
         getar([60, 40, 60]);
         speak("Uang belum terbaca jelas. Dekatkan sedikit lalu ketuk layar lagi.");
