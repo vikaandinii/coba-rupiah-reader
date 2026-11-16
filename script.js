@@ -30,17 +30,17 @@
   ];
   window.BANKNOTE_CLASSES = BANKNOTE_CLASSES;
 
-  // Ambang Batas Keyakinan Terkalibrasi (Aksesibilitas Tunanetra: Cepat, Responsif, Bebas Posisi)
+  // Ambang Batas Keyakinan Terkalibrasi: Minimal 90% baru menebak nominal
   const THRESHOLDS = {
-    CONFIRMED: 0.48,             // 48% confidence sudah cukup untuk konfirmasi otomatis
-    MARGIN: 0.10,                // 10% margin di atas peringkat kedua
-    UNCERTAIN: 0.28,             // Ambang batas keraguan
-    UNKNOWN: 0.18,               // Di bawah 18% dianggap frame kosong
-    WINDOW_SIZE: 4,              // 4 frame buffer (cepat dan responsif)
-    MIN_VOTES: 2,                // Cukup 2 frame sepakat untuk langsung bicara
-    TARGET_FRAME_INTERVAL_MS: 130, // ~8 FPS
-    GUIDANCE_COOLDOWN_MS: 3800,  // Jeda antar petunjuk suara
-    SPEECH_SAME_BILL_COOLDOWN_MS: 5000 // Jeda bicara ulang uang yang sama
+    CONFIRMED: 0.90,             // Wajib >= 90% baru berani menebak nominal
+    MARGIN: 0.12,                // 12% margin di atas peringkat kedua
+    UNCERTAIN: 0.50,             // 50%-89% dianggap kurang jelas (minta pindai ulang)
+    UNKNOWN: 0.25,               // Di bawah 25% dianggap tidak ada uang
+    WINDOW_SIZE: 4,
+    MIN_VOTES: 2,
+    TARGET_FRAME_INTERVAL_MS: 130,
+    GUIDANCE_COOLDOWN_MS: 3800,
+    SPEECH_SAME_BILL_COOLDOWN_MS: 5000
   };
 
   // ---------------------------------------------------------------------------
@@ -1142,7 +1142,7 @@
             if (apiRes.ok) {
               const data = await apiRes.json();
               console.log("[FastAPI Predict]", data);
-              if (data.success && data.nominal) {
+              if (data.success && data.nominal && (data.confidence === undefined || data.confidence >= THRESHOLDS.CONFIRMED)) {
                 const nomInt = parseInt(data.nominal);
                 const found = BANKNOTE_CLASSES.find((c) => c.nominal === nomInt);
                 if (found) {
@@ -1173,7 +1173,7 @@
       const res = await predictBanknoteFrame(el.video);
       const bestPred = res ? res.chosen : null;
 
-      if (bestPred && bestPred.top.prob >= 0.55 && bestPred.margin >= 0.12) {
+      if (bestPred && bestPred.top.prob >= THRESHOLDS.CONFIRMED && bestPred.margin >= THRESHOLDS.MARGIN) {
         const selected = bestPred.top;
         app.lastSpokenNominal = selected.nominal;
         app.lastResult = {
@@ -1189,12 +1189,12 @@
         playSuccessChime();
         speak(nominalToSpeech(selected.nominal));
         updateResultUI(selected);
-      } else if (bestPred && bestPred.top.prob >= 0.35) {
+      } else if (bestPred && bestPred.top.prob >= THRESHOLDS.UNCERTAIN) {
         el.bottomCard.className = "bottom-pill-card state-idle";
-        el.pillSubtitle.textContent = "Kurang Jelas";
+        el.pillSubtitle.textContent = "Belum Yakin (< 90%)";
         el.pillTitle.textContent = "Pegang Stabil lalu Ketuk Lagi";
         getar([60, 40, 60]);
-        speak("Uang kurang jelas. Dekatkan sedikit lalu ketuk layar lagi.");
+        speak("Uang belum terbaca jelas. Dekatkan sedikit lalu ketuk layar lagi.");
       } else {
         el.bottomCard.className = "bottom-pill-card state-idle";
         el.pillSubtitle.textContent = "Tidak Terdeteksi";
